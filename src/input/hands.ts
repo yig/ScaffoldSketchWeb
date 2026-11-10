@@ -104,7 +104,7 @@ export interface PoseOptions {
 
 // Typical values: finger extension ≈ 1.7–2 open or bunched, ≈ 0.7–1 in a fist;
 // fingertip spread ≈ 0.2–0.35 bunched, ≈ 1–1.5 open, ≈ 0.6–0.8 in a fist.
-export const DEFAULT_POSE: PoseOptions = { bunchClose: 0.45, bunchOpen: 0.6, fistClose: 1.1, fistOpen: 1.3, graceMs: 150 };
+export const DEFAULT_POSE: PoseOptions = { bunchClose: 0.5, bunchOpen: 0.6, fistClose: 1.1, fistOpen: 1.3, graceMs: 150 };
 
 /** Turns per-frame Hand3D lists into PenHands with stable pose states. */
 export class HandPoseDetector {

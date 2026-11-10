@@ -198,7 +198,7 @@ hysteresis:
   *also when the fingertips are bunched* (the fingers stay extended); a fist
   curls the tips back toward the wrist, < 1.
 - *fingertips together* ("bunched"): fingertip spread = largest distance
-  between any two of the five fingertips, in palm sizes, below 0.45; released
+  between any two of the five fingertips, in palm sizes, below 0.5; released
   above 0.6; and not a fist (a fist also brings the tips fairly close, ≈ 0.6–0.8).
 
 The first fist measure (fingertips' distance from the palm centre, in palm
