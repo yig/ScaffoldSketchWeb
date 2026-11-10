@@ -55,19 +55,6 @@
           <p class="hint" id="inputHint"></p>
         </section>
 
-        <section id="webcamSection" hidden>
-          <h2>Camera</h2>
-          <label>Device <select id="cameraSelect"></select></label>
-          <div class="videoWrap"><video id="video" muted playsinline></video></div>
-          <h3>Calibration</h3>
-          <div id="calibration"></div>
-          <details>
-            <summary>Add a phone as a second camera</summary>
-            <p class="hint">More cameras triangulate the hands, which makes depth much more accurate.</p>
-            <div id="join"></div>
-          </details>
-        </section>
-
         <section>
           <h2>Drawing</h2>
           <div class="choices">
@@ -91,6 +78,19 @@
             <li>In VR, turn your other palm toward you for a menu; poke its buttons.</li>
             <li>Mouse: left-drag draws on a plane through the view's center; right-drag orbits; scroll moves the view in and out.</li>
           </ul>
+        </section>
+
+        <section id="webcamSection" hidden>
+          <h2>Camera</h2>
+          <label>Device <select id="cameraSelect"></select></label>
+          <div class="videoWrap"><video id="video" muted playsinline></video></div>
+          <h3>Calibration</h3>
+          <div id="calibration"></div>
+          <details>
+            <summary>Add a phone as a second camera</summary>
+            <p class="hint">More cameras triangulate the hands, which makes depth much more accurate.</p>
+            <div id="join"></div>
+          </details>
         </section>
       </aside>
     </main>

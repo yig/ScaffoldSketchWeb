@@ -60,6 +60,8 @@ button.mode[aria-pressed='true'], button.active { background: var(--accent); col
 #panel h2 { font-size: 15px; margin: 14px 0 6px; }
 #panel h3 { font-size: 14px; margin: 12px 0 4px; }
 #panel label { display: flex; gap: 6px; align-items: center; margin: 6px 0; }
+/* A label styled as a button (file picker) sits in a row of buttons like one. */
+#panel label.button { display: inline-flex; margin: 0; }
 #panel select { font: inherit; flex: 1; min-width: 0; }
 .choices { display: flex; flex-wrap: wrap; gap: 6px; }
 .hint { color: var(--muted); margin: 6px 0; }
