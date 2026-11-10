@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "smoke": "node tools/smoke.mjs"
+    "smoke": "node tools/smoke.mjs",
+    "deploy": "sh tools/deploy.sh"
   },
   "dependencies": {
     "@ygingold/webhands3d": "^0.1.0",

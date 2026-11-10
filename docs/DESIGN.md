@@ -34,8 +34,11 @@ npm run build      # static site in dist/ (index.html + phone.html)
 ```
 
 **Hosting.** https://yig.github.io/ScaffoldSketchWeb/ (repository
-`yig/ScaffoldSketchWeb`). `.github/workflows/pages.yml` typechecks, tests,
-builds and deploys `dist/` to GitHub Pages on every push to `main`. Vite's
+`yig/ScaffoldSketchWeb`). Pages serves the `gh-pages` branch; `npm run deploy`
+(`tools/deploy.sh`) typechecks, tests, builds and force-pushes `dist/` there
+(with `.nojekyll`), from a clean checkout. (A GitHub Actions workflow would
+be nicer, but the account's Actions jobs were blocked by a billing lock when
+this was set up; branch-based Pages builds still ran.) Vite's
 `base: './'` makes all asset paths relative, so the site works under the
 repository's subpath. Pages serves HTTPS, which webcams, phones (remote
 cameras) and WebXR need. `public/examples/` (copied into the site) holds an
@@ -80,7 +83,7 @@ src/
 test/                    vitest: algorithms.test.ts, gestures.test.ts
 tools/smoke.mjs          playwright-core + system Chrome; fake camera
 public/examples/         example drawings served with the site (?load=examples/…)
-.github/workflows/       Pages: typecheck, test, build, deploy
+tools/deploy.sh          npm run deploy: test, build, push dist/ to gh-pages
 ```
 
 Dependency direction: `geometry`, `optimize` ← `scaffold`, `shape` ← `model` ←

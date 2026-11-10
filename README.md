@@ -55,7 +55,7 @@ npm run typecheck
 npm run build        # static site in dist/
 ```
 
-Every push to `main` runs the tests and publishes `dist/` to GitHub Pages
-(`.github/workflows/pages.yml`).
+`npm run deploy` publishes the site: it typechecks, tests, builds, and pushes
+`dist/` to the `gh-pages` branch, which GitHub Pages serves.
 
 Design and architecture: [docs/DESIGN.md](docs/DESIGN.md).
