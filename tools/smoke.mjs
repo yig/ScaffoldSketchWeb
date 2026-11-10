@@ -82,6 +82,18 @@ await page.keyboard.press('Control+Shift+z');
 s = await state();
 check(s.strokes.length === 1, 'redo restores it');
 
+// Shift draws too (the pen follows the pointer, no button); Tab switches back to scaffold mode.
+await page.keyboard.press('Tab');
+const mode = await page.getAttribute('#modeScaffold', 'aria-pressed');
+check(mode === 'true', 'Tab switches to scaffold mode');
+await page.mouse.move(c[0] - 60, c[1] + 220);
+await page.keyboard.down('Shift');
+await page.mouse.move(c[0] + 60, c[1] + 225, { steps: 5 });
+await page.keyboard.up('Shift');
+await page.waitForTimeout(100);
+s = await state();
+check(s.lines.length === 5, `holding Shift draws a scaffold line (got ${s.lines.length} lines)`);
+
 // Webcam with Chrome's fake camera: starts without errors (MediaPipe loads from a CDN).
 await page.click('#menuButton');
 await page.click('#useWebcam');

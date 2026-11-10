@@ -80,7 +80,8 @@ export class PokeMenu {
    * shown (so the caller can suspend drawing).
    */
   update(other: PenHand | undefined, dominant: PenHand | undefined, head: THREE.Vector3): boolean {
-    this.visible = !!other && palmFacing(other, head);
+    // Not while that hand is making a gesture (fingertips together draws; fists navigate).
+    this.visible = !!other && !other.bunched && !other.fist && palmFacing(other, head);
     this.group.visible = this.visible;
     if (!this.visible || !other) return false;
 
@@ -96,7 +97,7 @@ export class PokeMenu {
 
     let hover: string | undefined;
     if (dominant) {
-      const tip = new THREE.Vector3(...dominant.indexTip);
+      const tip = new THREE.Vector3(...dominant.pen);
       let closest = Infinity;
       for (const m of this.meshes) {
         const local = m.mesh.worldToLocal(tip.clone());

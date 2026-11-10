@@ -23,7 +23,7 @@ import {
 } from './model/drawing';
 import { download, timestamp, toOBJ } from './model/export';
 import { GestureController, IDENTITY_NAVIGATION, MAX_SCALE, MIN_SCALE, toDrawing, type Navigation } from './input/gestures';
-import { PinchDetector, type PenHand } from './input/hands';
+import { HandPoseDetector, type PenHand } from './input/hands';
 import { WebcamSource, startXR, xrSupported } from './input/sources';
 import { SketchView, type Mode } from './render/view';
 import { PokeMenu } from './render/menu';
@@ -44,7 +44,7 @@ let stroke: Vec3[] | null = null;
 let keypointCache: { state: DrawingState; keypoints: Keypoint[] } | null = null;
 
 const view = new SketchView($('scene'));
-const pinch = new PinchDetector();
+const poses = new HandPoseDetector();
 const gestures = new GestureController({
   strokeStart(p) {
     stroke = [toDrawing(gestures.nav, p)];
@@ -141,23 +141,26 @@ const menu = new PokeMenu([
 ]);
 view.physicalRoot.add(menu.group);
 
+/** Draw triggers that aren't hands: Shift, and the mouse button in mouse mode. */
+const keys = { shift: false };
+const triggers = () => ({ draw: keys.shift || (source === 'mouse' && mouse.down) });
+
 /** Hands from webcams or the headset. */
-function onHands(hands: Parameters<PinchDetector['update']>[0]) {
-  const now = performance.now();
-  pens = pinch.update(hands, now);
+function onHands(hands: Parameters<HandPoseDetector['update']>[0]) {
+  pens = poses.update(hands, performance.now());
   if (source === 'xr') {
     const head = new THREE.Vector3().setFromMatrixPosition(view.renderer.xr.getCamera().matrixWorld);
     const other = pens.find((p) => p.handedness !== gestures.dominant);
     const dominant = pens.find((p) => p.handedness === gestures.dominant);
     gestures.drawingEnabled = !menu.update(other, dominant, head);
   }
-  gestures.update(pens, now);
+  gestures.update(pens, triggers());
 }
 
-/** The mouse as a pen held in the dominant hand; the button is the pinch. Fed per event so no motion is lost between frames. */
+/** The mouse as the drawing hand's fingertip; the button (or Shift) draws. Fed per event so no motion is lost between frames. */
 function onMouse() {
-  pens = mouse.pen ? [{ handedness: gestures.dominant, joints: [], pinching: mouse.down, pen: mouse.pen, indexTip: mouse.pen }] : [];
-  gestures.update(pens, performance.now());
+  pens = mouse.pen ? [{ handedness: gestures.dominant, joints: [], bunched: false, fist: false, pen: mouse.pen, palm: mouse.pen }] : [];
+  gestures.update(pens, triggers());
 }
 
 view.start(() => {
@@ -176,7 +179,7 @@ view.start(() => {
       }
     }
   }
-  view.setHands(pens, gestures.dominant, mode, near, radius * 0.35);
+  view.setHands(pens, gestures.dominant, mode, near, radius * 0.35, gestures.isDrawing);
   if (stroke && mode === 'scaffold' && pen) view.setPreview([stroke[0], toDrawing(gestures.nav, pen.pen)]);
   else view.setPreview(stroke);
 });
@@ -208,7 +211,7 @@ function setSource(next: typeof source) {
     none: '',
     webcam: 'Hold your hands up in front of the camera. Calibrate (below) so distances are right.',
     xr: 'Drawing in the headset. Put the controllers down: hands are tracked.',
-    mouse: 'For trying things out: left-drag draws on a plane through the center of the view.',
+    mouse: 'For trying things out: left-drag (or hold Shift) draws on a plane through the center of the view.',
   }[next];
   savePrefs();
 }
@@ -246,7 +249,7 @@ async function enterXR(xrMode: 'immersive-vr' | 'immersive-ar') {
       setSource(previous === 'xr' ? 'none' : previous);
       say('Left XR', 'info');
     });
-    say('In XR. Pinch to draw; turn your other palm toward you for the menu.', 'ok');
+    say('In XR. Bring your left fingertips together to draw with your right index finger; left palm toward you for the menu.', 'ok');
   } catch (e) {
     say(`Couldn't start XR with hand tracking: ${errorText(e)}`, 'error');
   }
@@ -405,7 +408,20 @@ $('clear').addEventListener('click', () => {
   say('Cleared (Undo brings it back)', 'info');
 });
 
+/** Shift held = draw. */
+function setShift(down: boolean) {
+  if (keys.shift === down) return;
+  keys.shift = down;
+  if (source === 'mouse') onMouse();
+  else gestures.update(pens, triggers());
+}
+document.addEventListener('keyup', (e) => {
+  if (e.key === 'Shift') setShift(false);
+});
+window.addEventListener('blur', () => setShift(false));
+
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Shift') setShift(true);
   const target = e.target as HTMLElement;
   if (target.closest('input, select, textarea')) return;
   const mod = e.metaKey || e.ctrlKey;

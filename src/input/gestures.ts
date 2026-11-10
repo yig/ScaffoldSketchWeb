@@ -1,12 +1,14 @@
 /**
  * Gestures, independent of where the hands come from (webcams, headset, mouse):
  *
- * - dominant hand pinch: draw (a scaffold line or a shape stroke, by mode);
- * - other hand pinch and move: grab the drawing (translate);
- * - both hands pinched: zoom, turn about the vertical and translate the
- *   drawing (the paper's zoom: thresholds are physical, so zooming in makes
- *   auto-correct finer);
- * - other hand quick tap (short pinch, little motion): toggle scaffold/shape.
+ * - the drawing hand's index fingertip is the pen (right hand by default);
+ * - it draws (a scaffold line or a shape stroke, by mode) while Shift is held
+ *   or while the other hand's five fingertips are together;
+ * - bringing the drawing hand's five fingertips together toggles
+ *   scaffold/shape (as does Tab, handled by the page);
+ * - both hands in fists: move, turn about the vertical, and zoom the drawing
+ *   by tracking the fists (the paper's zoom: thresholds are physical, so
+ *   zooming in makes auto-correct finer).
  *
  * Positions are physical (metres, +y up). The navigation transform maps
  * drawing coordinates to physical ones: physical = T · drawing, with
@@ -55,81 +57,64 @@ export interface GestureEvents {
   toggleMode(): void;
 }
 
-const TAP_MS = 350;
-const TAP_MOTION = 0.02;
+/** Inputs that aren't hands. */
+export interface Triggers {
+  /** Shift key (or mouse button): draw. */
+  draw: boolean;
+}
+
 export const MIN_SCALE = 0.05;
 export const MAX_SCALE = 50;
 
 export class GestureController {
   dominant: Handedness = 'Right';
   nav: Navigation = IDENTITY_NAVIGATION;
-  /** Set false to stop gestures from drawing (e.g. while poking a menu). */
+  /** Set false to stop gestures from starting strokes (e.g. while poking a menu). */
   drawingEnabled = true;
 
   private drawing = false;
-  private grab: { start: Navigation; other: Vec3; dominant?: Vec3 } | null = null;
-  private tap: { start: number; at: Vec3; spoiled: boolean } | null = null;
-  private wasPinching = new Map<Handedness, boolean>();
+  private fists: { start: Navigation; other: Vec3; dominant: Vec3 } | null = null;
+  private wasBunched = false;
 
   constructor(private readonly events: GestureEvents) {}
 
-  update(hands: PenHand[], now: number) {
+  get isDrawing() {
+    return this.drawing;
+  }
+
+  update(hands: PenHand[], triggers: Triggers) {
     const dom = hands.find((h) => h.handedness === this.dominant);
     const other = hands.find((h) => h.handedness !== this.dominant);
-    const domPinch = !!dom?.pinching;
-    const otherPinch = !!other?.pinching;
-    const domStarted = domPinch && !this.wasPinching.get(this.dominant);
-    const otherSide: Handedness = this.dominant === 'Right' ? 'Left' : 'Right';
-    const otherStarted = otherPinch && !this.wasPinching.get(otherSide);
-    this.wasPinching.set(this.dominant, domPinch);
-    this.wasPinching.set(otherSide, otherPinch);
 
-    // ---- other hand: taps and grabs ----
-    if (otherStarted && other) {
-      this.tap = { start: now, at: other.pen, spoiled: domPinch };
-      this.grab = { start: this.nav, other: other.pen };
-    }
-    if (otherPinch && other && this.tap && dist(other.pen, this.tap.at) > TAP_MOTION) this.tap.spoiled = true;
-    if (!otherPinch && this.tap) {
-      if (!this.tap.spoiled && now - this.tap.start < TAP_MS) {
-        // Undo any tiny grab motion and toggle.
-        if (this.grab) this.setNav(this.grab.start, true);
-        this.events.toggleMode();
-      }
-      this.tap = null;
-    }
-    if (!otherPinch && this.grab) {
-      this.grab = null;
-      this.events.navigateEnd(this.nav);
-    }
-
-    // ---- dominant hand: draw, unless the other hand is navigating ----
-    if (this.grab && domPinch && dom) {
+    // ---- both fists: navigate ----
+    if (dom?.fist && other?.fist) {
       if (this.drawing) {
         this.drawing = false;
         this.events.strokeCancel();
       }
-      if (this.tap) this.tap.spoiled = true;
-      // Two-hand navigation; (re)anchor when the dominant hand joins.
-      if (domStarted || !this.grab.dominant) this.grab = { start: this.nav, other: other!.pen, dominant: dom.pen };
-      this.setNav(twoHand(this.grab.start, this.grab.other, this.grab.dominant!, other!.pen, dom.pen), false);
+      if (!this.fists) this.fists = { start: this.nav, other: other.palm, dominant: dom.palm };
+      this.setNav(twoHand(this.fists.start, this.fists.other, this.fists.dominant, other.palm, dom.palm), false);
+      this.wasBunched = false;
       return;
     }
-    if (this.grab && other) {
-      if (this.grab.dominant) this.grab = { start: this.nav, other: other.pen }; // dominant released: back to one hand
-      if (!this.drawing) {
-        const d = sub(other.pen, this.grab.other);
-        const s = this.grab.start;
-        this.setNav({ ...s, position: [s.position[0] + d[0], s.position[1] + d[1], s.position[2] + d[2]] }, false);
-      }
+    if (this.fists) {
+      this.fists = null;
+      this.events.navigateEnd(this.nav);
     }
 
-    if (domStarted && dom && !this.grab && this.drawingEnabled) {
+    // ---- drawing hand's fingertips together: toggle the mode ----
+    const bunched = !!dom?.bunched;
+    if (bunched && !this.wasBunched && !this.drawing) this.events.toggleMode();
+    this.wasBunched = bunched;
+
+    // ---- draw with the drawing hand's index fingertip ----
+    const trigger = triggers.draw || !!other?.bunched;
+    if (!this.drawing && trigger && dom && !bunched && this.drawingEnabled) {
       this.drawing = true;
       this.events.strokeStart(dom.pen);
-    } else if (this.drawing && domPinch && dom) {
+    } else if (this.drawing && trigger && dom) {
       this.events.strokeMove(dom.pen);
-    } else if (this.drawing && !domPinch) {
+    } else if (this.drawing && (!trigger || !dom)) {
       this.drawing = false;
       this.events.strokeEnd();
     }
@@ -143,10 +128,10 @@ export class GestureController {
 }
 
 /**
- * Two-hand navigation: the drawing point under each hand at the start stays
- * under that hand (as far as a similarity about the vertical allows):
- * scale by the change in hand distance, turn by the change in the hands'
- * horizontal bearing, and move the midpoint with the hands.
+ * Two-hand navigation: the drawing point under each fist at the start stays
+ * under that fist (as far as a similarity about the vertical allows):
+ * scale by the change in distance between the fists, turn by the change in
+ * their horizontal bearing, and move the midpoint with them.
  */
 function twoHand(start: Navigation, a0: Vec3, b0: Vec3, a1: Vec3, b1: Vec3): Navigation {
   const d0 = sub(b0, a0);
@@ -164,4 +149,3 @@ function twoHand(start: Navigation, a0: Vec3, b0: Vec3, a1: Vec3, b1: Vec3): Nav
 }
 
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const dist = (a: Vec3, b: Vec3) => Math.hypot(...sub(a, b));

@@ -39,7 +39,7 @@ npm run build      # static site in dist/ (index.html + phone.html)
 index.html               the app page: toolbar, status line, Setup panel
 phone.html               phone camera page (webhands3d mountRemoteCamera)
 src/
-  main.ts                wiring: sources → pinch → gestures → model → view; UI, keys, persistence
+  main.ts                wiring: sources → hand poses → gestures → model → view; UI, keys, persistence
   geometry/vec.ts        Vec3 tuples, distances, resampling, PCA axis
   optimize/
     levenbergMarquardt.ts  small dense LM with forward-difference Jacobian (scaffold solves)
@@ -51,8 +51,8 @@ src/
                          physical→drawing threshold scaling, History (undo/redo), JSON format
     export.ts            OBJ polylines, file download helpers
   input/
-    hands.ts             Hand3D → world axes; PinchDetector (hysteresis, dropout grace)
-    gestures.ts          GestureController: draw / grab / two-hand zoom+turn / tap to toggle mode;
+    hands.ts             Hand3D → world axes; HandPoseDetector (fist, fingertips together; hysteresis, dropout grace)
+    gestures.ts          GestureController: draw (Shift / left fingertips) / mode toggle / two-fist move+turn+zoom;
                          Navigation (drawing ↔ physical transform)
     sources.ts           WebcamSource (MultiViewHandTracker + calibration panel + phone join);
                          startXR (WebXR session + WebXRHandTracker)
@@ -91,7 +91,7 @@ they run under vitest in Node. `input/gestures.ts` is also DOM-free.
 
 ## Scaffold auto-correct (`scaffold/autocorrect.ts`)
 
-Input: the drawn segment l = (a, b) (pinch press → release positions; the
+Input: the drawn segment l = (a, b) (draw start → end positions; the
 "elastic line"). Context: keypoints (every line's endpoints and midpoint, and
 tick marks), existing lines, directions (existing lines' + vertical), lengths.
 
@@ -187,29 +187,42 @@ OBJ polylines (groups `scaffold`, `shape`), GLB of the rendered tubes.
 
 ## Input
 
-**Pens from hands** (`input/hands.ts`). Pinch = thumb tip to index tip distance
-relative to palm size (mean of wrist–index MCP, wrist–pinky MCP, index–pinky MCP):
-closes below 0.30, opens above 0.45 (hysteresis). The pen point is the midpoint
-of the two tips. A hand lost for < 150 ms keeps its last pose and pinch, so
-tracking dropouts don't cut strokes.
+**Hand poses** (`input/hands.ts`). The pen is the drawing hand's **index
+fingertip**. Two poses are classified per hand, in units of palm size (mean of
+wrist–index knuckle, wrist–pinky knuckle, index–pinky knuckle, ≈ 8 cm), with
+hysteresis:
 
-**Gestures** (`input/gestures.ts`), replacing the paper's controller buttons:
+- *fist*: mean distance of the four fingertips (not the thumb) from the palm
+  centre (wrist + four knuckles) below 0.95; released above 1.15 (open hand ≈ 1.7–2);
+- *fingertips together* ("bunched"): largest distance between any two of the
+  five fingertips below 0.40, released above 0.55, and not a fist (a fist
+  also brings the tips fairly close, ≈ 0.6–0.8).
 
-| Gesture | Action |
+A hand lost for < 150 ms keeps its last pose, so tracking dropouts don't cut strokes.
+
+**Gestures** (`input/gestures.ts`), replacing the paper's controller buttons
+(roles for the default right drawing hand; Setup can swap them):
+
+| Input | Action |
 |---|---|
-| dominant-hand pinch (hold) | draw: scaffold = elastic line press→release; shape = the path |
-| other-hand quick pinch (< 350 ms, < 2 cm motion) | toggle scaffold ↔ shape |
-| other-hand pinch and move | move the drawing |
-| both hands pinched | zoom (hand distance), turn about vertical (hands' bearing), move (midpoint) |
-| XR: other palm toward the face | wrist menu: Scaffold, Shape, Undo, Redo, Auto-correct, Center |
+| right index fingertip | the pen (cursor) |
+| hold Shift, or left five fingertips together | draw: scaffold = elastic line from start to end; shape = the path |
+| Tab, or right five fingertips together (on forming the pose) | toggle scaffold ↔ shape (not while drawing) |
+| both hands fists, moving | move (midpoint), turn about vertical (bearing between fists), zoom (distance between fists), tracking the palm centres |
+| XR: open left palm toward the face | wrist menu: Scaffold, Shape, Undo, Redo, Auto-correct, Center |
 
-Both-hand navigation keeps the drawing points under the hands under them
-(exactly horizontally; the vertical follows the midpoint). Starting navigation
-while drawing cancels the stroke. A tap's tiny grab motion is undone.
-The drawing hand is selectable (default right).
+Drawing with the left hand as the trigger keeps the right fingertip still at
+stroke start and end (unlike a pinch, which moves the fingertips). A stroke
+can't start while the right hand is bunched. Both-fist navigation keeps the
+drawing points under the fists under them (exactly horizontally; the vertical
+follows the midpoint); making fists while drawing cancels the stroke. The
+wrist menu is hidden while the left hand is bunched or a fist, so it can't
+block drawing.
 
-Desktop alternatives: toolbar buttons and keys (Tab/S/D mode, Ctrl/⌘-Z undo,
-Ctrl/⌘-Shift-Z or Ctrl-Y redo, +/− zoom, F center, A auto-correct, R raw).
+Desktop alternatives: toolbar buttons and keys (Shift draw, Tab/S/D mode,
+Ctrl/⌘-Z undo, Ctrl/⌘-Shift-Z or Ctrl-Y redo, +/− zoom, F center, A
+auto-correct, R raw). Shift is read on key down/up (and reset on window blur)
+and combined with the hands on every hand frame.
 
 **Sources** (`input/sources.ts`):
 
@@ -221,8 +234,8 @@ Ctrl/⌘-Shift-Z or Ctrl-Y redo, +/− zoom, F center, A auto-correct, R raw).
 - *WebXR*: `immersive-vr` (white room, as in the paper) or `immersive-ar`
   (passthrough) with `hand-tracking` required; `WebXRHandTracker` shares
   three.js's session and reference space.
-- *Mouse*: left button = pinch; the pen lies on the plane through the orbit
-  target facing the camera. Mouse events drive the gestures directly (not per
+- *Mouse*: the pointer is the fingertip; the left button (or Shift) draws. The
+  pen lies on the plane through the orbit target facing the camera. Mouse events drive the gestures directly (not per
   frame) so the stroke start isn't sampled late.
 
 ## View (`render/view.ts`)
@@ -231,8 +244,8 @@ White background with light grid lines on a floor and three walls ("white like
 paper with light grid lines visible on the walls"). Scaffold lines: thin gray
 tubes (0.8 mm physical radius). Shape strokes: thick black tubes (2.2 mm).
 Keypoints: small dark dots. Raw input (toggle): thin orange polylines.
-Cursor: sphere at the pen, blue in scaffold mode, black in shape mode, larger
-while pinching. The keypoint the pen would snap to is highlighted.
+Cursor: sphere at the fingertip, blue in scaffold mode, black in shape mode,
+larger while drawing. Hand skeletons darken while making a fist or bunching. The keypoint the pen would snap to is highlighted.
 
 Desktop: the default camera sits where the user's eyes are (behind the hands,
 looking toward the webcam/screen), so hand motion maps naturally; OrbitControls
@@ -245,8 +258,10 @@ to inspect depth; a dashed drop line from the cursor to the floor as a depth cue
   point–point, point–line, zoom-scaled thresholds, ticks); shape (Menger
   curvature, circle through midpoints within 2%, straight diagonal, freeform,
   MVC not worse than initialisation); history and serialization.
-- `test/gestures.test.ts`: navigation inverse, draw, tap toggle, grab and
-  two-hand zoom/turn.
+- `test/gestures.test.ts`: navigation inverse; drawing with Shift and with the
+  left fingertips; mode toggle (once per gesture, not while drawing); two-fist
+  move/turn/zoom; fists cancel a stroke; pose classification on synthetic
+  open, fist and bunched hands.
 - `tools/smoke.mjs`: real page in headless Chrome: mouse-drawn square closes,
   circle becomes a curve, undo/redo, webcam starts with a fake camera, no
   page errors.
@@ -255,13 +270,13 @@ Not automatically tested: real hand tracking quality, WebXR (needs a headset).
 
 ## Open questions / future work
 
-- **Webcam depth.** Monocular depth is the weakest axis; pinch-drawing in depth
+- **Webcam depth.** Monocular depth is the weakest axis; drawing in depth
   with one webcam is hard. Calibration helps; a phone as a second camera helps
   more. Possible: show a live side view, or constrain depth with scaffold
   context (e.g. snap stroke depth to the plane of nearby scaffold).
-- **Pinch onset jitter.** Closing a pinch moves the fingertips; the first
-  centimetre of a stroke may hook. Could drop the first few samples or use the
-  pre-pinch position.
+- **Pose thresholds** were set from typical hand proportions and synthetic
+  hands, not tuned on real tracking; webcam tracking of curled fingers in a
+  fist is less reliable than of extended ones.
 - **Threshold personalisation** (paper's future work) — thresholds are in
   `Settings`, not yet exposed in the UI.
 - **Constraint visualisation** — the satisfied constraint kinds are listed in

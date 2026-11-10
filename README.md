@@ -21,11 +21,14 @@ npm run dev:lan      # HTTPS on your network, for a headset or phones
 
 Open Setup and pick **Webcam hands**, **Enter VR**, or **Mouse**.
 
-- **Pinch** with your drawing hand to draw.
-- **Quick pinch** with the other hand: switch Scaffold ↔ Shape.
-- **Pinch and move** the other hand to move the drawing; pinch with **both** to zoom and turn.
+- Your **right index fingertip** is the pen. It draws while you hold **Shift**
+  or bring the **left hand's five fingertips together**.
+- **Tab**, or the **right hand's five fingertips together**: switch Scaffold ↔ Shape.
+- **Both hands in fists**: move them to move, turn and zoom the drawing.
 - A **very short** scaffold stroke across a line adds a keypoint.
-- In VR, turn your other palm toward you for a menu.
+- In VR, turn your open left palm toward you for a menu.
+
+(The drawing hand can be switched to the left in Setup; the roles swap.)
 
 With a webcam, calibrate in the Setup panel for accurate distances.
 

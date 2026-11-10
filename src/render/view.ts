@@ -231,8 +231,8 @@ export class SketchView {
     this.preview.visible = true;
   }
 
-  /** Hands (physical coordinates), the dominant hand's pen cursor, and the keypoint it would snap to. */
-  setHands(hands: PenHand[], dominant: string, mode: Mode, near: Vec3 | null, nearRadius: number) {
+  /** Hands (physical coordinates), the drawing hand's fingertip cursor (larger while drawing), and the keypoint it would snap to. */
+  setHands(hands: PenHand[], dominant: string, mode: Mode, near: Vec3 | null, nearRadius: number, drawing: boolean) {
     const seen = new Set<string>();
     for (const hand of hands) {
       if (!hand.joints.length) continue; // the mouse pen has no hand
@@ -253,7 +253,8 @@ export class SketchView {
         pos.setXYZ(i * 2 + 1, ...hand.joints[b]);
       });
       pos.needsUpdate = true;
-      (lines.material as THREE.LineBasicMaterial).color.set(hand.pinching ? 0x5a6672 : COLORS.hand);
+      // Darker while making a gesture pose (fist or fingertips together).
+      (lines.material as THREE.LineBasicMaterial).color.set(hand.fist || hand.bunched ? 0x3d4650 : COLORS.hand);
       lines.visible = true;
     }
     for (const [side, lines] of this.handLines) if (!seen.has(side)) lines.visible = false;
@@ -262,7 +263,7 @@ export class SketchView {
     this.cursor.visible = !!pen;
     if (pen) {
       this.cursor.position.set(...pen.pen);
-      this.cursor.scale.setScalar(pen.pinching ? 0.006 : 0.0045);
+      this.cursor.scale.setScalar(drawing ? 0.006 : 0.0045);
       (this.cursor.material as THREE.MeshStandardMaterial).color.set(mode === 'scaffold' ? COLORS.scaffoldCursor : COLORS.shapeCursor);
       if (this.environment === 'desktop') {
         // Depth cue on a flat screen: a dashed line down to the floor grid.
