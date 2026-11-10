@@ -14,6 +14,7 @@ import {
   addScaffoldStroke,
   addShapeStroke,
   deserialize,
+  fromSaved,
   keypoints as computeKeypoints,
   scaledSettings,
   serialize,
@@ -22,7 +23,8 @@ import {
   type Settings,
 } from './model/drawing';
 import { download, timestamp, toOBJ } from './model/export';
-import { GestureController, IDENTITY_NAVIGATION, MAX_SCALE, MIN_SCALE, toDrawing, type Navigation } from './input/gestures';
+import { fromPaperFormat, isPaperFormat, toPaperFormat } from './model/paperFormat';
+import { GestureController, IDENTITY_NAVIGATION, MAX_SCALE, MIN_SCALE, toDrawing, toPhysical, type Navigation } from './input/gestures';
 import { DEFAULT_POSE, HandPoseDetector, type PenHand, type PoseOptions } from './input/hands';
 import { GestureFeedback } from './ui/gestureFeedback';
 import { WebcamSource, startXR, xrSupported } from './input/sources';
@@ -329,6 +331,19 @@ function comfortablePoint(): Vec3 {
   return [t.x, t.y, t.z];
 }
 
+/** After opening a file on a desktop: frame it, and back the camera off until all of it is in view. */
+function frameOpened() {
+  frameDrawing();
+  if (source === 'xr') return;
+  const s = history.state;
+  const points = [...s.lines.flatMap((l) => [l.a, l.b]), ...s.strokes.flatMap((st) => st.points)].map((p) => toPhysical(gestures.nav, p));
+  if (!points.length) return;
+  const lo = [0, 1, 2].map((i) => Math.min(...points.map((p) => p[i])));
+  const hi = [0, 1, 2].map((i) => Math.max(...points.map((p) => p[i])));
+  const center = lo.map((v, i) => (v + hi[i]) / 2) as Vec3;
+  view.fitView(center, Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) / 2);
+}
+
 /** Put the drawing's center at the comfortable point, at 1×. */
 function frameDrawing() {
   const s = history.state;
@@ -380,17 +395,44 @@ $('menuButton').addEventListener('click', () => {
   $('menuButton').setAttribute('aria-expanded', String(!panel.classList.contains('closed')));
 });
 
+/** When this drawing session started (the paper format records it). */
+let sessionStart = new Date();
+
 $('save').addEventListener('click', () => {
   const withHistory = $<HTMLInputElement>('saveHistory').checked;
   download(`scaffoldsketch-${timestamp()}.json`, serialize(history.state, withHistory ? history.timeline() : undefined), 'application/json');
+});
+$('savePaper').addEventListener('click', () => {
+  const data = toPaperFormat(history.timeline(), {
+    history: $<HTMLInputElement>('saveHistory').checked,
+    start: sessionStart,
+    undoCount: history.undoCount,
+  });
+  download(`scaffoldsketch-paper-${timestamp()}.json`, JSON.stringify(data), 'application/json');
 });
 $<HTMLInputElement>('open').addEventListener('change', async (e) => {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file) return;
   try {
-    history.reset(deserialize(await file.text()));
-    frameDrawing();
-    say(`Opened ${file.name}`, 'ok');
+    const data: unknown = JSON.parse(await file.text());
+    if (isPaperFormat(data)) {
+      const paper = fromPaperFormat(data);
+      history.load(paper.timeline, paper.undoCount ?? 0);
+      sessionStart = new Date();
+      frameOpened();
+      const s = history.state;
+      say(
+        `Opened ${file.name} (original ScaffoldSketch format${paper.withoutAutocorrect ? ', drawn without auto-correct' : ''}): ` +
+          `${s.lines.length} scaffold lines, ${s.ticks.length} ticks, ${s.strokes.length} shape strokes; undo steps back through its ${paper.timeline.length - 1} changes`,
+        'ok',
+      );
+    } else {
+      const saved = fromSaved(data);
+      history.load(saved.history ?? [saved.state]);
+      sessionStart = new Date();
+      frameOpened();
+      say(`Opened ${file.name}`, 'ok');
+    }
   } catch (err) {
     say(`Couldn't open ${file.name}: ${errorText(err)}`, 'error');
   }
@@ -410,6 +452,7 @@ $('exportGLB').addEventListener('click', () => {
 $('clear').addEventListener('click', () => {
   if (!history.state.lines.length && !history.state.strokes.length && !history.state.ticks.length) return;
   history.push(EMPTY);
+  sessionStart = new Date();
   say('Cleared (Undo brings it back)', 'info');
 });
 

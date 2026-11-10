@@ -186,6 +186,8 @@ function nextId(state: DrawingState) {
 export class History {
   private past: DrawingState[] = [];
   private future: DrawingState[] = [];
+  /** Undos since the drawing was started or opened (saved in the paper's format). */
+  undoCount = 0;
   private listeners = new Set<(state: DrawingState) => void>();
 
   constructor(public state: DrawingState = EMPTY) {}
@@ -204,6 +206,7 @@ export class History {
   undo() {
     const previous = this.past.pop();
     if (!previous) return false;
+    this.undoCount++;
     this.future.push(this.state);
     this.set(previous);
     return true;
@@ -219,9 +222,16 @@ export class History {
 
   /** Replace everything (e.g. after loading), clearing undo. */
   reset(state: DrawingState) {
-    this.past = [];
+    this.load([state]);
+  }
+
+  /** Replace everything with a recorded history (oldest first); undo steps back through it. */
+  load(timeline: DrawingState[], undoCount = 0) {
+    if (!timeline.length) timeline = [EMPTY];
+    this.past = timeline.slice(0, -1);
     this.future = [];
-    this.set(state);
+    this.undoCount = undoCount;
+    this.set(timeline[timeline.length - 1]);
   }
 
   get canUndo() {
@@ -261,11 +271,16 @@ export function serialize(state: DrawingState, history?: DrawingState[]): string
 }
 
 export function deserialize(text: string): DrawingState {
-  const saved = JSON.parse(text) as SavedDrawing;
-  if (saved.format !== FORMAT) throw new Error('Not a ScaffoldSketch drawing');
+  return fromSaved(JSON.parse(text)).state;
+}
+
+/** A parsed `.json` in this app's format: its state, and the history if it was saved. */
+export function fromSaved(data: unknown): { state: DrawingState; history?: DrawingState[] } {
+  const saved = data as SavedDrawing;
+  if (saved?.format !== FORMAT) throw new Error('Not a ScaffoldSketch drawing');
   const s = saved.state;
   if (!Array.isArray(s?.lines) || !Array.isArray(s?.ticks) || !Array.isArray(s?.strokes)) throw new Error('Malformed drawing');
-  return s;
+  return { state: s, history: Array.isArray(saved.history) && saved.history.length ? saved.history : undefined };
 }
 
 /** Unit direction of a scaffold line. */

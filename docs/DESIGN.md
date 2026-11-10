@@ -50,6 +50,7 @@ src/
     drawing.ts           DrawingState (lines, ticks, strokes), keypoints, add* operations,
                          physical→drawing threshold scaling, History (undo/redo), JSON format
     export.ts            OBJ polylines, file download helpers
+    paperFormat.ts       read/write the original ScaffoldSketch's .json (the paper's user study files)
   input/
     hands.ts             Hand3D → world axes; HandPoseDetector (fist, fingertips together; hysteresis, dropout grace)
     gestures.ts          GestureController: draw (Shift / left fingertips) / mode toggle / two-fist move+turn+zoom;
@@ -182,6 +183,36 @@ history". Auto-correct can be turned off (the paper's user-study baseline and a
 limitation it mentions); strokes are then stored raw (`kind: 'raw'`).
 
 Saved format (`.json`): `{ format: 'scaffoldsketch-web', version: 1, state, history? }`.
+Opening a file with `history` restores it, so undo steps back through it.
+
+**The original's format** (`model/paperFormat.ts`), as in the paper's user
+study files (`paper-models/*/*.json`, not committed; `paper-models/vis_json.py`
+reads them): a JSON array of full snapshots, one appended per change, then
+`"start_time<YYYY_MM_DD_HH_MM_SS_ms_Time Zone>"` and `"undo_count<n>"`; readers
+use `data[-3]`. Each snapshot has `construction_lines`, `shape_curves`,
+`raw_construction_lines`, `raw_shape_curves`, `line_points` (keypoints),
+`line_directions` (vertical first), `line_lengths`, `points_info` (directions
+per keypoint index). Coordinates are WebXR metres (+y up, floor at 0), the
+same axes as ours.
+
+- *Open…* detects the format (a top-level array with snapshots). Each snapshot
+  becomes a `DrawingState`; unchanged items keep their ids across snapshots and
+  the states form the undo history (identical consecutive snapshots are
+  dropped). Ticks are `line_points` that aren't a line end or midpoint
+  (attached to the nearest line). `raw_shape_curves` is not index-aligned with
+  `shape_curves` (strokes that failed to auto-correct also recorded their raw
+  input), so a stroke's raw input is the raw curve appended in the same step.
+  Files drawn without auto-correct (no raw input) load as raw strokes. The
+  undo count is kept.
+- *Save paper .json* writes our history (or only the current state if "Include
+  drawing history" is off) in that format, with keypoints, directions
+  (deduplicated like the original: per-component tolerance 0.015, either sign),
+  lengths (tolerance 1 mm), the session start time and the undo count.
+- Tested against all 33 study files when present: final lines, strokes and
+  keypoints match the last snapshot, raw strokes come from the file, and
+  writing back reproduces the strokes.
+- After opening on a desktop, the orbit camera backs off to fit the drawing
+  (zoom stays 1×, so auto-correct thresholds are unchanged).
 The current drawing is autosaved to `localStorage` (paper: "our system
 auto-saves"); preferences (drawing hand, toggles, navigation) too. Exports:
 OBJ polylines (groups `scaffold`, `shape`), GLB of the rendered tubes.
@@ -275,6 +306,9 @@ to inspect depth; a dashed drop line from the cursor to the floor as a depth cue
   point–point, point–line, zoom-scaled thresholds, ticks); shape (Menger
   curvature, circle through midpoints within 2%, straight diagonal, freeform,
   MVC not worse than initialisation); history and serialization.
+- `test/paperFormat.test.ts`: reading a synthetic file (raw pairing with a
+  failed stroke, ticks, history, undo count), round-trip writing, and every
+  file in `paper-models/` if present.
 - `test/gestures.test.ts`: navigation inverse; drawing with Shift and with the
   left fingertips; mode toggle (once per gesture, not while drawing); two-fist
   move/turn/zoom; fists cancel a stroke; pose classification on synthetic

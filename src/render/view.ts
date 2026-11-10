@@ -285,6 +285,17 @@ export class SketchView {
     }
   }
 
+  /** Desktop: move the orbit camera along its current direction so a sphere (physical coordinates) fits the view. */
+  fitView(center: Vec3, radius: number) {
+    const target = new THREE.Vector3(...center);
+    const direction = this.camera.position.clone().sub(this.controls.target).normalize();
+    const halfFov = THREE.MathUtils.degToRad(this.camera.fov / 2);
+    const fit = radius / Math.sin(Math.min(halfFov, Math.atan(Math.tan(halfFov) * this.camera.aspect)));
+    this.controls.target.copy(target);
+    this.camera.position.copy(target).addScaledVector(direction, Math.max(fit * 1.1, 0.5));
+    this.controls.update();
+  }
+
   /** Pen position from a mouse event: on the plane through the orbit target facing the camera. */
   mouseToPhysical(event: { clientX: number; clientY: number }): Vec3 | null {
     const rect = this.renderer.domElement.getBoundingClientRect();
