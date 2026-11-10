@@ -1,0 +1,28 @@
+{
+  "name": "scaffoldsketch-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ScaffoldSketch in the browser: accurate 3D design drawing with hand tracking (webcams or WebXR).",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:lan": "SCAFFOLD_LAN=1 vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ygingold/webhands3d": "^0.1.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/three": "^0.187.0",
+    "@types/webxr": "^0.5.24",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.7",
+    "vitest": "^5.1.0"
+  }
+}
