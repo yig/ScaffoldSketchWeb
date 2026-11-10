@@ -10,7 +10,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "smoke": "node tools/smoke.mjs"
   },
   "dependencies": {
     "@ygingold/webhands3d": "^0.1.0",
@@ -21,6 +22,7 @@
     "@types/three": "^0.187.0",
     "@types/webxr": "^0.5.24",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "playwright-core": "^1.65.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.7",
     "vitest": "^5.1.0"

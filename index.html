@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>ScaffoldSketch</title>
+    <link rel="stylesheet" href="./src/ui/style.css" />
+  </head>
+  <body>
+    <main>
+      <div id="scene"></div>
+
+      <header id="toolbar">
+        <div class="group" role="radiogroup" aria-label="Mode">
+          <button id="modeScaffold" class="mode" title="Scaffold mode: straight construction lines (Tab or S)">Scaffold</button>
+          <button id="modeShape" class="mode" title="Shape mode: curves through the scaffold (Tab or D)">Shape</button>
+        </div>
+        <div class="group">
+          <button id="undo" title="Undo (Ctrl/⌘ Z)">Undo</button>
+          <button id="redo" title="Redo (Ctrl/⌘ Shift Z)">Redo</button>
+        </div>
+        <div class="group">
+          <button id="zoomOut" title="Zoom out: draw bigger, coarser auto-correct (−)">−</button>
+          <span id="zoomLabel" title="Zoom: you are this many times smaller than the drawing">1×</span>
+          <button id="zoomIn" title="Zoom in: draw finer details, finer auto-correct (+)">+</button>
+          <button id="frame" title="Bring the drawing in front of you at 1× (F)">Center</button>
+        </div>
+        <div class="group">
+          <label title="Auto-correct strokes (A)"><input id="autocorrect" type="checkbox" checked /> Auto-correct</label>
+          <label title="Show strokes as drawn (R)"><input id="showRaw" type="checkbox" /> Raw input</label>
+        </div>
+        <div class="group right">
+          <button id="menuButton" aria-expanded="false" aria-controls="panel">Setup ▾</button>
+        </div>
+      </header>
+
+      <div id="status" data-kind="info" role="status">Choose how to draw in the Setup panel.</div>
+
+      <aside id="panel">
+        <section>
+          <h2>Input</h2>
+          <div class="choices">
+            <button id="useWebcam">Webcam hands</button>
+            <button id="useXR">Enter VR</button>
+            <button id="useAR" hidden>Enter AR</button>
+            <button id="useMouse">Mouse</button>
+          </div>
+          <label>Drawing hand
+            <select id="dominant">
+              <option value="Right">Right</option>
+              <option value="Left">Left</option>
+            </select>
+          </label>
+          <p class="hint" id="inputHint"></p>
+        </section>
+
+        <section id="webcamSection" hidden>
+          <h2>Camera</h2>
+          <label>Device <select id="cameraSelect"></select></label>
+          <div class="videoWrap"><video id="video" muted playsinline></video></div>
+          <h3>Calibration</h3>
+          <div id="calibration"></div>
+          <details>
+            <summary>Add a phone as a second camera</summary>
+            <p class="hint">More cameras triangulate the hands, which makes depth much more accurate.</p>
+            <div id="join"></div>
+          </details>
+        </section>
+
+        <section>
+          <h2>Drawing</h2>
+          <div class="choices">
+            <button id="save">Save .json</button>
+            <label class="button">Open… <input id="open" type="file" accept=".json,application/json" hidden /></label>
+            <button id="exportOBJ">Export .obj</button>
+            <button id="exportGLB">Export .glb</button>
+            <button id="clear">Clear</button>
+          </div>
+          <label><input id="saveHistory" type="checkbox" /> Include drawing history when saving</label>
+        </section>
+
+        <section>
+          <h2>How to draw</h2>
+          <ul class="help">
+            <li><b>Pinch</b> (thumb + index) with your drawing hand to draw. In Scaffold mode you stretch a straight line; in Shape mode you draw a curve.</li>
+            <li>A <b>very short</b> scaffold line across a line adds a keypoint (tick mark) there.</li>
+            <li>Shape strokes snap to scaffold <b>keypoints</b> (dots: ends, middles, ticks) and follow scaffold directions.</li>
+            <li><b>Quick pinch</b> with the other hand switches Scaffold ↔ Shape.</li>
+            <li><b>Pinch and move</b> the other hand to move the drawing; pinch with <b>both</b> hands to zoom and turn it.</li>
+            <li>In VR, turn your other palm toward you for a menu; poke its buttons.</li>
+            <li>Mouse: left-drag draws on a plane through the view's center; right-drag orbits; scroll moves the view in and out.</li>
+          </ul>
+        </section>
+      </aside>
+    </main>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

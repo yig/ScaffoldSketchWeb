@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>ScaffoldSketch camera</title>
+    <style>
+      body { font: 15px system-ui, sans-serif; margin: 0 auto; padding: 12px; max-width: 640px; color: #1d232a; }
+      h1 { font-size: 18px; }
+    </style>
+  </head>
+  <body>
+    <h1>ScaffoldSketch · phone camera</h1>
+    <!-- The whole page is webhands3d's remote camera component. -->
+    <div id="remote"></div>
+    <script type="module">
+      import { mountRemoteCamera } from '@ygingold/webhands3d';
+      mountRemoteCamera(document.getElementById('remote'));
+    </script>
+  </body>
+</html>
