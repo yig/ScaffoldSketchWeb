@@ -136,9 +136,11 @@ for (const file of ['examples/cylinder.json', 'examples/cylinder-paper.json']) {
   check(loaded.lines.length === 12 && loaded.strokes.length === 3, `?load=${file} opens it (${loaded.lines.length} lines, ${loaded.strokes.length} strokes)`);
   if (shot && file.endsWith('cylinder.json')) await page.screenshot({ path: shot.replace(/\.png$/, '-load.png') });
 }
+const before = errors.length;
 await page.goto(`${base}/index.html?load=examples/missing.json`);
 await page.waitForFunction(() => /Couldn't load/.test(document.getElementById('status').textContent), null, { timeout: 15000 });
 check(true, '?load= of a missing file reports an error');
+errors.splice(before); // the browser logs the expected 404
 
 const unique = [...new Set(errors)];
 check(unique.length === 0, `no page errors${unique.length ? ':\n  ' + unique.join('\n  ') : ''}`);
