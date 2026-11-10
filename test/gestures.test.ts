@@ -9,6 +9,8 @@ const hand = (handedness: 'Left' | 'Right', p: Vec3, pose: { bunched?: boolean; 
   joints: [],
   bunched: !!pose.bunched,
   fist: !!pose.fist,
+  spread: 1,
+  extension: 2,
   pen: p,
   palm: p,
 });

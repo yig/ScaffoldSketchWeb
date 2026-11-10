@@ -4,7 +4,7 @@
  * hand poses with hysteresis, relative to hand size:
  *
  * - bunched: all five fingertips together (fingers extended, tips touching);
- * - fist: the four fingertips curled in to the palm.
+ * - fist: the four fingers curled, so their tips are back near the wrist.
  *
  * The pen is the index fingertip.
  */
@@ -34,6 +34,9 @@ export interface PenHand {
   bunched: boolean;
   /** A fist. */
   fist: boolean;
+  /** Measurements behind the poses (palm-size units / ratios), for feedback. */
+  spread: number;
+  extension: number;
   /** Where the pen draws: the index fingertip. */
   pen: Vec3;
   /** Centre of the palm (wrist and the four knuckles): what fist navigation tracks. */
@@ -69,11 +72,21 @@ export function fingertipSpread(joints: Vec3[]) {
   return max / palmSize(joints);
 }
 
-/** Mean distance of the four fingertips (not the thumb) from the palm centre, in palm sizes. Small in a fist. */
-export function fingertipReach(joints: Vec3[]) {
-  const palm = mean(PALM.map((i) => joints[i]));
-  const tips = FINGERTIPS.slice(1);
-  return tips.reduce((s, i) => s + distance(joints[i], palm), 0) / tips.length / palmSize(joints);
+/**
+ * How far the four fingertips (not the thumb) reach from the wrist, relative to
+ * their knuckles: mean |tip − wrist| / mean |knuckle − wrist|. About 1.7–2 for
+ * straight fingers, also when the fingertips are bunched together (the fingers
+ * stay extended), and below 1 in a fist (the tips curl back toward the wrist).
+ */
+export function fingerExtension(joints: Vec3[]) {
+  const w = joints[WRIST];
+  let tips = 0;
+  let knuckles = 0;
+  for (let f = 0; f < 4; f++) {
+    tips += distance(joints[INDEX_TIP + 4 * f], w);
+    knuckles += distance(joints[INDEX_MCP + 4 * f], w);
+  }
+  return tips / knuckles;
 }
 
 export interface PoseOptions {
@@ -81,7 +94,7 @@ export interface PoseOptions {
   bunchClose: number;
   /** …and no longer once it rises above this. */
   bunchOpen: number;
-  /** Fist when the fingertip reach falls below this (palm sizes)… */
+  /** Fist when the finger extension falls below this (tip/knuckle distance from the wrist)… */
   fistClose: number;
   /** …and no longer once it rises above this. */
   fistOpen: number;
@@ -89,9 +102,9 @@ export interface PoseOptions {
   graceMs: number;
 }
 
-// Typical values: open hand reach ≈ 1.7–2, fist ≈ 0.6–0.8, bunched tips reach
-// ≈ 1.1–1.4 with spread ≈ 0.2–0.35; a fist's spread is ≈ 0.6–0.8.
-export const DEFAULT_POSE: PoseOptions = { bunchClose: 0.4, bunchOpen: 0.55, fistClose: 0.95, fistOpen: 1.15, graceMs: 150 };
+// Typical values: finger extension ≈ 1.7–2 open or bunched, ≈ 0.7–1 in a fist;
+// fingertip spread ≈ 0.2–0.35 bunched, ≈ 1–1.5 open, ≈ 0.6–0.8 in a fist.
+export const DEFAULT_POSE: PoseOptions = { bunchClose: 0.45, bunchOpen: 0.6, fistClose: 1.1, fistOpen: 1.3, graceMs: 150 };
 
 /** Turns per-frame Hand3D lists into PenHands with stable pose states. */
 export class HandPoseDetector {
@@ -108,9 +121,9 @@ export class HandPoseDetector {
       seen.add(hand.handedness);
       const joints = jointsToWorld(hand);
       const s = this.state.get(hand.handedness) ?? { bunched: false, fist: false, lastSeen: now, last: null };
-      const reach = fingertipReach(joints);
+      const extension = fingerExtension(joints);
       const spread = fingertipSpread(joints);
-      s.fist = s.fist ? reach < o.fistOpen : reach < o.fistClose;
+      s.fist = s.fist ? extension < o.fistOpen : extension < o.fistClose;
       // A fist also brings the tips closer; bunched means tips together with the fingers extended.
       s.bunched = !s.fist && (s.bunched ? spread < o.bunchOpen : spread < o.bunchClose);
       const pen: PenHand = {
@@ -118,6 +131,8 @@ export class HandPoseDetector {
         joints,
         bunched: s.bunched,
         fist: s.fist,
+        spread,
+        extension,
         pen: joints[INDEX_TIP],
         palm: mean(PALM.map((i) => joints[i])),
       };

@@ -60,6 +60,7 @@ src/
     view.ts              SketchView: three.js scene, paper-white grid room, tubes, keypoint dots,
                          hand skeletons, pen cursor, snap highlight, stroke preview, mouse picking
     menu.ts              PokeMenu: wrist menu of 3D buttons for XR, pressed by fingertip
+  ui/gestureFeedback.ts  gesture HUD, live pose meters and threshold sliders
   ui/style.css
 test/                    vitest: algorithms.test.ts, gestures.test.ts
 tools/smoke.mjs          playwright-core + system Chrome; fake camera
@@ -192,11 +193,27 @@ fingertip**. Two poses are classified per hand, in units of palm size (mean of
 wrist–index knuckle, wrist–pinky knuckle, index–pinky knuckle, ≈ 8 cm), with
 hysteresis:
 
-- *fist*: mean distance of the four fingertips (not the thumb) from the palm
-  centre (wrist + four knuckles) below 0.95; released above 1.15 (open hand ≈ 1.7–2);
-- *fingertips together* ("bunched"): largest distance between any two of the
-  five fingertips below 0.40, released above 0.55, and not a fist (a fist
-  also brings the tips fairly close, ≈ 0.6–0.8).
+- *fist*: finger extension = mean |fingertip − wrist| / mean |knuckle − wrist|
+  over the four fingers below 1.1; released above 1.3. Straight fingers ≈ 1.7–2,
+  *also when the fingertips are bunched* (the fingers stay extended); a fist
+  curls the tips back toward the wrist, < 1.
+- *fingertips together* ("bunched"): fingertip spread = largest distance
+  between any two of the five fingertips, in palm sizes, below 0.45; released
+  above 0.6; and not a fist (a fist also brings the tips fairly close, ≈ 0.6–0.8).
+
+The first fist measure (fingertips' distance from the palm centre, in palm
+sizes) also fell when the fingertips bunched in front of the palm, so
+"fingertips together" was read as a fist and could never trigger drawing.
+Extension relative to the wrist separates the two poses.
+
+**Feedback** (`ui/gestureFeedback.ts`): an on-screen readout per hand (not
+tracked / open or pointing / fingertips together → draw or switch mode / fist)
+plus "Drawing" or "Moving the drawing"; hand skeletons turn green for
+fingertips together and orange for a fist (the feedback in a headset). Setup →
+*Gesture thresholds* (a disclosure) shows live meters of spread and extension
+per hand, with the trigger zone and hysteresis band, and sliders for the four
+thresholds (release kept ≥ trigger), saved with the preferences
+(`poseVersion` discards thresholds saved for an older measure).
 
 A hand lost for < 150 ms keeps its last pose, so tracking dropouts don't cut strokes.
 
@@ -262,7 +279,10 @@ to inspect depth; a dashed drop line from the cursor to the floor as a depth cue
   left fingertips; mode toggle (once per gesture, not while drawing); two-fist
   move/turn/zoom; fists cancel a stroke; pose classification on synthetic
   open, fist and bunched hands.
-- `tools/smoke.mjs`: real page in headless Chrome: mouse-drawn square closes,
+- `tools/smoke.mjs` (+ `tools/syntheticHand.mjs`): real page in headless Chrome:
+  synthetic hands injected through `scaffoldsketch.onHands` draw with the left
+  fingertips together and light the right meters, fists are not read as
+  fingertips together; mouse-drawn square closes,
   circle becomes a curve, undo/redo, webcam starts with a fake camera, no
   page errors.
 
@@ -275,7 +295,7 @@ Not automatically tested: real hand tracking quality, WebXR (needs a headset).
   more. Possible: show a live side view, or constrain depth with scaffold
   context (e.g. snap stroke depth to the plane of nearby scaffold).
 - **Pose thresholds** were set from typical hand proportions and synthetic
-  hands, not tuned on real tracking; webcam tracking of curled fingers in a
+  hands; tune them with the live meters. Webcam tracking of curled fingers in a
   fist is less reliable than of extended ones.
 - **Threshold personalisation** (paper's future work) — thresholds are in
   `Settings`, not yet exposed in the UI.

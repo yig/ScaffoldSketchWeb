@@ -3,6 +3,7 @@
 // webcam input starts with a fake camera. Needs Google Chrome and a running
 // dev server (`npm run dev`). Usage: npm run smoke [-- http://localhost:5173] [screenshot.png]
 import { chromium } from 'playwright-core';
+import { syntheticHand } from './syntheticHand.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173';
 const shot = process.argv[3];
@@ -93,6 +94,32 @@ await page.keyboard.up('Shift');
 await page.waitForTimeout(100);
 s = await state();
 check(s.lines.length === 5, `holding Shift draws a scaffold line (got ${s.lines.length} lines)`);
+
+// Synthetic hands: left fingertips together draws with the right index fingertip; feedback shows it.
+await page.click('#menuButton');
+await page.click('#gestureDetails summary');
+const linesBefore = (await state()).lines.length;
+const frame = (left, right, dx = 0) =>
+  page.evaluate(([l, r, dx]) => {
+    r.joints = r.joints.map((v, i) => (i % 3 === 0 ? v + dx : v));
+    window.scaffoldsketch.onHands([l, r]);
+  }, [syntheticHand(left, 'Left'), syntheticHand(right, 'Right'), dx]);
+await frame('open', 'open');
+await frame('bunched', 'open');
+const drawingNow = await page.evaluate(() => window.scaffoldsketch.gestures.isDrawing);
+check(drawingNow, 'left fingertips together starts drawing');
+const active = await page.$$eval('.meter', (ms) => ms.map((m) => m.dataset.active));
+check(active[0] === 'true' && active[1] === 'false', `spread meter lights up for the left hand (${active.join(',')})`);
+for (let k = 1; k <= 5; k++) await frame('bunched', 'open', 0.04 * k);
+if (shot) await page.screenshot({ path: shot.replace(/\.png$/, '-gestures.png') });
+await frame('open', 'open', 0.2);
+s = await state();
+check(s.lines.length === linesBefore + 1, `releasing the left fingertips finishes the stroke (${s.lines.length - linesBefore} new)`);
+await frame('fist', 'fist');
+const fistActive = await page.$$eval('.meter', (ms) => ms.map((m) => m.dataset.active));
+check(fistActive[1] === 'true' && fistActive[3] === 'true' && fistActive[0] === 'false', `fists detected, not fingertips together (${fistActive.join(',')})`);
+await frame('open', 'open');
+await page.click('#menuButton');
 
 // Webcam with Chrome's fake camera: starts without errors (MediaPipe loads from a CDN).
 await page.click('#menuButton');

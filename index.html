@@ -35,6 +35,8 @@
         </div>
       </header>
 
+      <div id="gestureHud" hidden aria-live="polite"></div>
+
       <div id="status" data-kind="info" role="status">Choose how to draw in the Setup panel.</div>
 
       <aside id="panel">
@@ -53,6 +55,11 @@
             </select>
           </label>
           <p class="hint" id="inputHint"></p>
+          <details id="gestureDetails">
+            <summary>Gesture thresholds</summary>
+            <p class="hint">Live measurements of each hand. The dark zone triggers the pose; it stays on until the value leaves the light band. Hover a meter for what it measures.</p>
+            <div id="gestureControls"></div>
+          </details>
         </section>
 
         <section>

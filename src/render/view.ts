@@ -27,6 +27,8 @@ export const COLORS = {
   shapeCursor: 0x111111,
   highlight: 0xf2a33a,
   hand: 0x9aa6b2,
+  bunched: 0x2c8a4b,
+  fist: 0xc27a16,
 };
 
 /** Line thickness in physical metres; the drawing scales with zoom, so radii are divided by it. */
@@ -253,8 +255,8 @@ export class SketchView {
         pos.setXYZ(i * 2 + 1, ...hand.joints[b]);
       });
       pos.needsUpdate = true;
-      // Darker while making a gesture pose (fist or fingertips together).
-      (lines.material as THREE.LineBasicMaterial).color.set(hand.fist || hand.bunched ? 0x3d4650 : COLORS.hand);
+      // Coloured while making a gesture pose (also the feedback in a headset).
+      (lines.material as THREE.LineBasicMaterial).color.set(hand.fist ? COLORS.fist : hand.bunched ? COLORS.bunched : COLORS.hand);
       lines.visible = true;
     }
     for (const [side, lines] of this.handLines) if (!seen.has(side)) lines.visible = false;

@@ -23,7 +23,8 @@ import {
 } from './model/drawing';
 import { download, timestamp, toOBJ } from './model/export';
 import { GestureController, IDENTITY_NAVIGATION, MAX_SCALE, MIN_SCALE, toDrawing, type Navigation } from './input/gestures';
-import { HandPoseDetector, type PenHand } from './input/hands';
+import { DEFAULT_POSE, HandPoseDetector, type PenHand, type PoseOptions } from './input/hands';
+import { GestureFeedback } from './ui/gestureFeedback';
 import { WebcamSource, startXR, xrSupported } from './input/sources';
 import { SketchView, type Mode } from './render/view';
 import { PokeMenu } from './render/menu';
@@ -44,7 +45,7 @@ let stroke: Vec3[] | null = null;
 let keypointCache: { state: DrawingState; keypoints: Keypoint[] } | null = null;
 
 const view = new SketchView($('scene'));
-const poses = new HandPoseDetector();
+const poses = new HandPoseDetector({ ...DEFAULT_POSE });
 const gestures = new GestureController({
   strokeStart(p) {
     stroke = [toDrawing(gestures.nav, p)];
@@ -145,9 +146,12 @@ view.physicalRoot.add(menu.group);
 const keys = { shift: false };
 const triggers = () => ({ draw: keys.shift || (source === 'mouse' && mouse.down) });
 
+const feedback = new GestureFeedback($('gestureHud'), $('gestureControls'), poses.options, () => savePrefs());
+
 /** Hands from webcams or the headset. */
 function onHands(hands: Parameters<HandPoseDetector['update']>[0]) {
   pens = poses.update(hands, performance.now());
+  feedback.update(pens, gestures.dominant, { drawing: gestures.isDrawing, navigating: gestures.isNavigating });
   if (source === 'xr') {
     const head = new THREE.Vector3().setFromMatrixPosition(view.renderer.xr.getCamera().matrixWorld);
     const other = pens.find((p) => p.handedness !== gestures.dominant);
@@ -159,7 +163,7 @@ function onHands(hands: Parameters<HandPoseDetector['update']>[0]) {
 
 /** The mouse as the drawing hand's fingertip; the button (or Shift) draws. Fed per event so no motion is lost between frames. */
 function onMouse() {
-  pens = mouse.pen ? [{ handedness: gestures.dominant, joints: [], bunched: false, fist: false, pen: mouse.pen, palm: mouse.pen }] : [];
+  pens = mouse.pen ? [{ handedness: gestures.dominant, joints: [], bunched: false, fist: false, spread: 1, extension: 2, pen: mouse.pen, palm: mouse.pen }] : [];
   gestures.update(pens, triggers());
 }
 
@@ -200,6 +204,7 @@ function setSource(next: typeof source) {
   stroke = null;
   for (const id of ['useWebcam', 'useMouse']) $(id).classList.toggle('active', (id === 'useWebcam' && next === 'webcam') || (id === 'useMouse' && next === 'mouse'));
   $('webcamSection').hidden = next !== 'webcam';
+  feedback.visible = next === 'webcam' || next === 'xr';
   const mouseMode = next === 'mouse';
   // Mouse: left button draws, so orbit moves to the right button.
   view.controls.mouseButtons = {
@@ -484,6 +489,15 @@ interface Prefs {
   autocorrect?: boolean;
   showRaw?: boolean;
   nav?: Navigation;
+  pose?: Partial<PoseOptions>;
+  poseVersion?: number;
+}
+/** Bump when the pose measurements change meaning, so old saved thresholds are ignored. */
+const POSE_VERSION = 2;
+function pickPose(p: Partial<PoseOptions>): Partial<PoseOptions> {
+  const out: Partial<PoseOptions> = {};
+  for (const k of Object.keys(DEFAULT_POSE) as (keyof PoseOptions)[]) if (typeof p[k] === 'number') out[k] = p[k];
+  return out;
 }
 function savePrefs() {
   const prefs: Prefs = {
@@ -491,6 +505,8 @@ function savePrefs() {
     autocorrect: settings.autocorrect,
     showRaw: view.showRaw,
     nav: gestures.nav,
+    pose: poses.options,
+    poseVersion: POSE_VERSION,
   };
   try {
     localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
@@ -514,6 +530,11 @@ function loadPrefs() {
     view.setShowRaw(true);
   }
   if (prefs.nav) gestures.setNav(prefs.nav, false);
+  if (prefs.pose) {
+    // Only the keys we know; settings from an older pose measure are dropped (see POSE_VERSION).
+    if (prefs.poseVersion === POSE_VERSION) Object.assign(poses.options, pickPose(prefs.pose));
+    feedback.syncInputs();
+  }
 }
 
 // ---------- start ----------
@@ -527,4 +548,4 @@ say(
   'info',
 );
 // For automated checks and debugging from the console.
-Object.assign(window, { scaffoldsketch: { history, settings, gestures, view, setMode, finishStroke } });
+Object.assign(window, { scaffoldsketch: { history, settings, gestures, view, setMode, finishStroke, onHands, poses } });

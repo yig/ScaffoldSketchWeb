@@ -82,6 +82,10 @@ export class GestureController {
     return this.drawing;
   }
 
+  get isNavigating() {
+    return this.fists !== null;
+  }
+
   update(hands: PenHand[], triggers: Triggers) {
     const dom = hands.find((h) => h.handedness === this.dominant);
     const other = hands.find((h) => h.handedness !== this.dominant);
