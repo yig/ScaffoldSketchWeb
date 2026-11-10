@@ -11,7 +11,21 @@ Draw with your hands, tracked by
 cameras) or a WebXR headset with hand tracking (e.g. Meta Quest). A mouse works
 too.
 
-## Run
+**Try it:** https://yig.github.io/ScaffoldSketchWeb/ ·
+[an example drawing](https://yig.github.io/ScaffoldSketchWeb/?load=examples/cylinder.json)
+
+## Open a drawing from a URL
+
+Add `?load=<url>` to open a `.json` drawing, in this app's format or the
+original ScaffoldSketch's (the paper's user study files):
+
+    https://yig.github.io/ScaffoldSketchWeb/?load=https://example.com/drawing.json
+
+Relative URLs are relative to the page (e.g. `?load=examples/cylinder.json`).
+A file on another site loads only if that server allows cross-origin requests
+(raw GitHub URLs and Gists do).
+
+## Run locally
 
 ```sh
 npm install
@@ -40,5 +54,8 @@ npm run smoke        # headless Chrome end-to-end (with `npm run dev` running)
 npm run typecheck
 npm run build        # static site in dist/
 ```
+
+Every push to `main` runs the tests and publishes `dist/` to GitHub Pages
+(`.github/workflows/pages.yml`).
 
 Design and architecture: [docs/DESIGN.md](docs/DESIGN.md).

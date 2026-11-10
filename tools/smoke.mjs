@@ -128,6 +128,18 @@ await page.waitForTimeout(6000);
 const status = await page.textContent('#status');
 check(!/blocked|error|fail/i.test(status), `webcam starts (status: "${status}")`);
 
+// ?load=<url> opens a drawing (this app's format and the original's).
+for (const file of ['examples/cylinder.json', 'examples/cylinder-paper.json']) {
+  await page.goto(`${base}/index.html?load=${file}`);
+  await page.waitForFunction((f) => /Opened|Couldn't/.test(document.getElementById('status').textContent) && document.getElementById('status').textContent.includes(f.split('/').pop()), file, { timeout: 15000 });
+  const loaded = await state();
+  check(loaded.lines.length === 12 && loaded.strokes.length === 3, `?load=${file} opens it (${loaded.lines.length} lines, ${loaded.strokes.length} strokes)`);
+  if (shot && file.endsWith('cylinder.json')) await page.screenshot({ path: shot.replace(/\.png$/, '-load.png') });
+}
+await page.goto(`${base}/index.html?load=examples/missing.json`);
+await page.waitForFunction(() => /Couldn't load/.test(document.getElementById('status').textContent), null, { timeout: 15000 });
+check(true, '?load= of a missing file reports an error');
+
 const unique = [...new Set(errors)];
 check(unique.length === 0, `no page errors${unique.length ? ':\n  ' + unique.join('\n  ') : ''}`);
 await browser.close();

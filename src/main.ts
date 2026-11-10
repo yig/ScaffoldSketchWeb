@@ -410,34 +410,70 @@ $('savePaper').addEventListener('click', () => {
   });
   download(`scaffoldsketch-paper-${timestamp()}.json`, JSON.stringify(data), 'application/json');
 });
+/** Open a drawing (this app's .json or the original ScaffoldSketch's) from its text. */
+function openDrawing(text: string, name: string) {
+  const data: unknown = JSON.parse(text);
+  if (isPaperFormat(data)) {
+    const paper = fromPaperFormat(data);
+    history.load(paper.timeline, paper.undoCount ?? 0);
+    sessionStart = new Date();
+    frameOpened();
+    const s = history.state;
+    say(
+      `Opened ${name} (original ScaffoldSketch format${paper.withoutAutocorrect ? ', drawn without auto-correct' : ''}): ` +
+        `${s.lines.length} scaffold lines, ${s.ticks.length} ticks, ${s.strokes.length} shape strokes; undo steps back through its ${paper.timeline.length - 1} changes`,
+      'ok',
+    );
+  } else {
+    const saved = fromSaved(data);
+    history.load(saved.history ?? [saved.state]);
+    sessionStart = new Date();
+    frameOpened();
+    say(`Opened ${name}`, 'ok');
+  }
+}
+
 $<HTMLInputElement>('open').addEventListener('change', async (e) => {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file) return;
   try {
-    const data: unknown = JSON.parse(await file.text());
-    if (isPaperFormat(data)) {
-      const paper = fromPaperFormat(data);
-      history.load(paper.timeline, paper.undoCount ?? 0);
-      sessionStart = new Date();
-      frameOpened();
-      const s = history.state;
-      say(
-        `Opened ${file.name} (original ScaffoldSketch format${paper.withoutAutocorrect ? ', drawn without auto-correct' : ''}): ` +
-          `${s.lines.length} scaffold lines, ${s.ticks.length} ticks, ${s.strokes.length} shape strokes; undo steps back through its ${paper.timeline.length - 1} changes`,
-        'ok',
-      );
-    } else {
-      const saved = fromSaved(data);
-      history.load(saved.history ?? [saved.state]);
-      sessionStart = new Date();
-      frameOpened();
-      say(`Opened ${file.name}`, 'ok');
-    }
+    openDrawing(await file.text(), file.name);
   } catch (err) {
     say(`Couldn't open ${file.name}: ${errorText(err)}`, 'error');
   }
   (e.target as HTMLInputElement).value = '';
 });
+
+/**
+ * Open the drawing at `?load=<url>` (relative to this page, or absolute; the
+ * other server must allow cross-origin requests). The URL stays in the address
+ * bar so the link can be shared; reloading opens it again.
+ */
+async function openFromURL() {
+  const param = new URLSearchParams(location.search).get('load');
+  if (!param) return;
+  let url: URL;
+  try {
+    url = new URL(param, location.href);
+  } catch {
+    say(`Couldn't open "${param}": not a URL`, 'error');
+    return;
+  }
+  // A shared link is for looking at the drawing: start with the Setup panel closed.
+  $('panel').classList.add('closed');
+  $('menuButton').setAttribute('aria-expanded', 'false');
+  const name = decodeURIComponent(url.pathname.split('/').pop() || url.href);
+  say(`Loading ${name}…`, 'busy');
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim());
+    openDrawing(await response.text(), name);
+  } catch (err) {
+    const hint = err instanceof TypeError ? ' (network error; the server may not allow loading from other sites)' : '';
+    say(`Couldn't load ${url.href}: ${errorText(err)}${hint}`, 'error');
+  }
+}
+
 $('exportOBJ').addEventListener('click', () => download(`scaffoldsketch-${timestamp()}.obj`, toOBJ(history.state), 'text/plain'));
 $('exportGLB').addEventListener('click', () => {
   const content = view.drawingContent.clone();
@@ -590,5 +626,6 @@ say(
   history.state.lines.length ? 'Restored your last drawing. Choose an input in Setup.' : 'Choose an input in Setup: webcam hands, a VR headset, or the mouse.',
   'info',
 );
+openFromURL();
 // For automated checks and debugging from the console.
 Object.assign(window, { scaffoldsketch: { history, settings, gestures, view, setMode, finishStroke, onHands, poses } });
