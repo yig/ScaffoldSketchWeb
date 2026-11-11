@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>ScaffoldSketch</title>
+    <script type="module" crossorigin src="./assets/index-CzvHk2i8.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/webhands-BIlhfkdz.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-NclmrupL.css">
+  </head>
+  <body>
+    <main>
+      <div id="scene"></div>
+
+      <header id="toolbar">
+        <div class="group brand">
+          <a href="https://cragl.cs.gmu.edu/scaffoldsketch/" target="_blank" rel="noopener" title="ScaffoldSketch project page (UIST 2021)">ScaffoldSketch</a>
+        </div>
+        <div class="group" role="radiogroup" aria-label="Mode">
+          <button id="modeScaffold" class="mode" title="Scaffold mode: straight construction lines (Tab or S)">Scaffold</button>
+          <button id="modeShape" class="mode" title="Shape mode: curves through the scaffold (Tab or D)">Shape</button>
+        </div>
+        <div class="group">
+          <button id="undo" title="Undo (Ctrl/⌘ Z)">Undo</button>
+          <button id="redo" title="Redo (Ctrl/⌘ Shift Z)">Redo</button>
+        </div>
+        <div class="group">
+          <button id="zoomOut" title="Zoom out: draw bigger, coarser auto-correct (−)">−</button>
+          <span id="zoomLabel" title="Zoom: you are this many times smaller than the drawing">1×</span>
+          <button id="zoomIn" title="Zoom in: draw finer details, finer auto-correct (+)">+</button>
+          <button id="frame" title="Bring the drawing in front of you at 1× (F)">Center</button>
+        </div>
+        <div class="group">
+          <label title="Auto-correct strokes (A)"><input id="autocorrect" type="checkbox" checked /> Auto-correct</label>
+          <label title="Show strokes as drawn (R)"><input id="showRaw" type="checkbox" /> Raw input</label>
+        </div>
+        <div class="group right">
+          <button id="menuButton" aria-expanded="false" aria-controls="panel">Setup ▾</button>
+        </div>
+      </header>
+
+      <div id="gestureHud" hidden aria-live="polite"></div>
+
+      <div id="status" data-kind="info" role="status">Choose how to draw in the Setup panel.</div>
+
+      <aside id="panel">
+        <section>
+          <h2>Input</h2>
+          <div class="choices">
+            <button id="useWebcam">Webcam hands</button>
+            <button id="useXR">Enter VR</button>
+            <button id="useAR" hidden>Enter AR</button>
+            <button id="useMouse">Mouse</button>
+          </div>
+          <label title="The other hand's roles swap too">Drawing hand
+            <select id="dominant">
+              <option value="Right">Right</option>
+              <option value="Left">Left</option>
+            </select>
+          </label>
+          <p class="hint" id="inputHint"></p>
+          <details id="gestureDetails">
+            <summary>Gesture thresholds</summary>
+            <p class="hint">Live measurements of each hand. The dark zone triggers the pose; it stays on until the value leaves the light band. Hover a meter for what it measures.</p>
+            <div id="gestureControls"></div>
+          </details>
+        </section>
+
+        <section>
+          <h2>Drawing</h2>
+          <div class="choices">
+            <button id="save">Save .json</button>
+            <button id="savePaper" title="The original ScaffoldSketch's format, as in the paper's user study files (readable by vis_json.py)">Save paper .json</button>
+            <label class="button" title="This app's .json or the original ScaffoldSketch's">Open… <input id="open" type="file" accept=".json,application/json" hidden /></label>
+            <button id="exportOBJ">Export .obj</button>
+            <button id="exportGLB">Export .glb</button>
+            <button id="clear">Clear</button>
+          </div>
+          <label><input id="saveHistory" type="checkbox" /> Include drawing history when saving</label>
+        </section>
+
+        <section>
+          <h2>How to draw</h2>
+          <ul class="help">
+            <li>Your <b>right index fingertip</b> is the pen.</li>
+            <li>It draws while you hold <b>Shift</b> or bring the <b>left hand's five fingertips together</b>. In Scaffold mode you stretch a straight line; in Shape mode you draw a curve.</li>
+            <li><b>Tab</b> or the <b>right hand's five fingertips together</b> switches Scaffold ↔ Shape.</li>
+            <li>Make <b>fists with both hands</b> and move them to move, turn and zoom the drawing.</li>
+            <li>A <b>very short</b> scaffold line across a line adds a keypoint (tick mark) there.</li>
+            <li>Shape strokes snap to scaffold <b>keypoints</b> (dots: ends, middles, ticks) and follow scaffold directions.</li>
+            <li>In VR, turn your open left palm toward you for a menu; poke its buttons.</li>
+            <li>Mouse: left-drag (or Shift) draws on a plane through the view's center; right-drag orbits; scroll moves the view in and out.</li>
+          </ul>
+        </section>
+
+        <section id="webcamSection" hidden>
+          <h2>Camera</h2>
+          <label>Device <select id="cameraSelect"></select></label>
+          <div class="videoWrap"><video id="video" muted playsinline></video></div>
+          <h3>Calibration</h3>
+          <div id="calibration"></div>
+          <details>
+            <summary>Add a phone as a second camera</summary>
+            <p class="hint">More cameras triangulate the hands, which makes depth much more accurate.</p>
+            <div id="join"></div>
+          </details>
+        </section>
+      </aside>
+    </main>
+  </body>
+</html>
