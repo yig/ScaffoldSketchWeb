@@ -30,7 +30,7 @@ import { GestureFeedback } from './ui/gestureFeedback';
 import { WebcamSource, startXR, xrSupported } from './input/sources';
 import { SketchView, type Mode } from './render/view';
 import { PokeMenu } from './render/menu';
-import { dist, type Vec3 } from './geometry/vec';
+import { dist, lerp, type Vec3 } from './geometry/vec';
 import type { Keypoint } from './shape/autocorrect';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -59,6 +59,7 @@ const gestures = new GestureController({
     if (dist(q, stroke[stroke.length - 1]) * gestures.nav.scale > 0.001) stroke.push(q);
   },
   strokeEnd() {
+    if (stroke && source === 'mouse') stroke = mouseStrokeDepth(stroke);
     if (stroke) finishStroke(stroke);
     stroke = null;
   },
@@ -133,7 +134,11 @@ history.onChange(() => {
 });
 
 // ---------- per frame ----------
-const mouse = { down: false, pen: null as Vec3 | null };
+/**
+ * Mouse pen state. `plane` (physical) is the point the camera-facing drawing plane passes through: the keypoint under
+ * the pointer when the stroke starts, else the orbit target. `snap` (drawing coordinates) is the keypoint under the pointer.
+ */
+const mouse = { down: false, pen: null as Vec3 | null, plane: null as Vec3 | null, snap: null as Vec3 | null };
 const menu = new PokeMenu([
   { id: 'scaffold', label: () => 'Scaffold', active: () => mode === 'scaffold', action: () => setMode('scaffold') },
   { id: 'shape', label: () => 'Shape', active: () => mode === 'shape', action: () => setMode('shape') },
@@ -174,7 +179,8 @@ view.start(() => {
   let near: Vec3 | null = null;
   const th = scaledSettings(settings, gestures.nav.scale);
   const radius = mode === 'shape' ? th.shape.keypointDistance : th.scaffold.pointPoint;
-  if (pen && settings.autocorrect) {
+  if (source === 'mouse') near = mouse.snap;
+  else if (pen && settings.autocorrect) {
     const p = toDrawing(gestures.nav, pen.pen);
     let best = radius;
     for (const k of keypoints()) {
@@ -270,27 +276,69 @@ xrSupported().then(({ vr, ar }) => {
   $('useAR').hidden = !ar;
 });
 
+/** The keypoint (drawing coordinates) whose snap radius the mouse ray passes through, nearest the ray first. */
+function mouseKeypoint(e: PointerEvent): Vec3 | null {
+  const ray = view.mouseRay(e);
+  let best = mode === 'shape' ? settings.shape.keypointDistance : settings.scaffold.pointPoint; // physical
+  let near: Vec3 | null = null;
+  for (const k of keypoints()) {
+    const d = ray.distanceToPoint(new THREE.Vector3(...toPhysical(gestures.nav, k.position)));
+    if (d < best) {
+      best = d;
+      near = k.position;
+    }
+  }
+  return near;
+}
+
+/** Place the mouse pen. Between strokes the drawing plane follows the keypoint under the pointer; during one it stays put. */
+function mouseAt(e: PointerEvent) {
+  mouse.snap = mouseKeypoint(e);
+  if (!stroke) mouse.plane = mouse.snap ? toPhysical(gestures.nav, mouse.snap) : (view.controls.target.toArray() as Vec3);
+  mouse.pen = view.mouseToPhysical(e, mouse.plane ?? undefined);
+}
+
+/**
+ * A mouse stroke lies on the plane through its start (a keypoint's depth, or the orbit target's). If it ends on a
+ * keypoint, slide each point along its camera ray so the depth goes linearly (by arc length) to that keypoint's depth.
+ */
+function mouseStrokeDepth(points: Vec3[]): Vec3[] {
+  if (!mouse.snap || !mouse.plane || points.length < 2) return points;
+  const start = mouse.plane;
+  const end = toPhysical(gestures.nav, mouse.snap);
+  const flat = points.map((p) => view.toViewPlane(toPhysical(gestures.nav, p), start));
+  const lengths = [0];
+  for (let i = 1; i < flat.length; i++) lengths.push(lengths[i - 1] + dist(flat[i], flat[i - 1]));
+  const total = lengths[lengths.length - 1];
+  return flat.map((p, i) => {
+    const t = total > 0 ? lengths[i] / total : i / (flat.length - 1);
+    return toDrawing(gestures.nav, view.toViewPlane(p, lerp(start, end, t)));
+  });
+}
+
 const canvas = view.renderer.domElement;
 canvas.addEventListener('pointerdown', (e) => {
   if (source !== 'mouse' || e.button !== 0) return;
   canvas.setPointerCapture(e.pointerId);
-  mouse.pen = view.mouseToPhysical(e);
+  mouseAt(e);
   mouse.down = true;
   onMouse();
 });
 canvas.addEventListener('pointermove', (e) => {
   if (source !== 'mouse') return;
-  mouse.pen = view.mouseToPhysical(e);
+  mouseAt(e);
   onMouse();
 });
 canvas.addEventListener('pointerup', (e) => {
   if (source !== 'mouse' || e.button !== 0) return;
+  mouseAt(e);
   mouse.down = false;
   onMouse();
 });
 canvas.addEventListener('pointerleave', () => {
   if (source !== 'mouse' || mouse.down) return;
   mouse.pen = null;
+  mouse.snap = null;
   onMouse();
 });
 

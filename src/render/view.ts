@@ -296,17 +296,33 @@ export class SketchView {
     this.controls.update();
   }
 
-  /** Pen position from a mouse event: on the plane through the orbit target facing the camera. */
-  mouseToPhysical(event: { clientX: number; clientY: number }): Vec3 | null {
+  /** The camera ray (physical coordinates) under a mouse event. */
+  mouseRay(event: { clientX: number; clientY: number }): THREE.Ray {
     const rect = this.renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
     const ray = new THREE.Raycaster();
     ray.setFromCamera(ndc, this.camera);
+    return ray.ray;
+  }
+
+  /** Pen position from a mouse event: on the plane facing the camera through `through` (physical; default the orbit target). */
+  mouseToPhysical(event: { clientX: number; clientY: number }, through?: Vec3): Vec3 | null {
+    const hit = this.mouseRay(event).intersectPlane(this.viewPlane(through ? new THREE.Vector3(...through) : this.controls.target), new THREE.Vector3());
+    return hit ? [hit.x, hit.y, hit.z] : null;
+  }
+
+  /** Slide a physical point along its camera ray onto the plane facing the camera through `through`, keeping its place on screen. */
+  toViewPlane(p: Vec3, through: Vec3): Vec3 {
+    const origin = this.camera.position;
+    const ray = new THREE.Ray(origin.clone(), new THREE.Vector3(...p).sub(origin).normalize());
+    const hit = ray.intersectPlane(this.viewPlane(new THREE.Vector3(...through)), new THREE.Vector3());
+    return hit ? [hit.x, hit.y, hit.z] : p;
+  }
+
+  private viewPlane(through: THREE.Vector3): THREE.Plane {
     const normal = new THREE.Vector3();
     this.camera.getWorldDirection(normal);
-    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, this.controls.target);
-    const hit = new THREE.Vector3();
-    return ray.ray.intersectPlane(plane, hit) ? [hit.x, hit.y, hit.z] : null;
+    return new THREE.Plane().setFromNormalAndCoplanarPoint(normal, through);
   }
 }
 

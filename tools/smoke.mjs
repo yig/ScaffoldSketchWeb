@@ -95,6 +95,29 @@ await page.waitForTimeout(100);
 s = await state();
 check(s.lines.length === 5, `holding Shift draws a scaffold line (got ${s.lines.length} lines)`);
 
+// Mouse depth: after orbiting, a drag from one square corner to the opposite one takes the corners' depths.
+const ends = await page.evaluate(() => {
+  const { view, history } = window.scaffoldsketch;
+  const { controls, camera, renderer, drawingRoot } = view;
+  const offset = camera.position.clone().sub(controls.target).applyAxisAngle(camera.up, Math.PI / 3);
+  camera.position.copy(controls.target).add(offset);
+  controls.update();
+  camera.updateMatrixWorld();
+  const rect = renderer.domElement.getBoundingClientRect();
+  const lines = history.state.lines;
+  return [lines[0].a, lines[2].a].map((p) => {
+    const v = drawingRoot.localToWorld(drawingRoot.position.clone().set(...p)).project(camera);
+    return { p, screen: [rect.left + ((v.x + 1) / 2) * rect.width, rect.top + ((1 - v.y) / 2) * rect.height] };
+  });
+});
+await drag([ends[0].screen, [(ends[0].screen[0] + ends[1].screen[0]) / 2, (ends[0].screen[1] + ends[1].screen[1]) / 2], ends[1].screen]);
+s = await state();
+const diagonal = s.lines[s.lines.length - 1];
+check(
+  s.lines.length === 6 && d(diagonal.a, ends[0].p) < 1e-3 && d(diagonal.b, ends[1].p) < 1e-3,
+  `mouse stroke between keypoints uses their depths (endpoint errors ${s.lines.length === 6 ? [d(diagonal.a, ends[0].p), d(diagonal.b, ends[1].p)].map((x) => x.toExponential(1)).join(', ') : 'n/a'} m)`,
+);
+
 // Synthetic hands: left fingertips together draws with the right index fingertip; feedback shows it.
 await page.click('#menuButton');
 await page.click('#gestureDetails summary');

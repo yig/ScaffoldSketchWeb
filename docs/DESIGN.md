@@ -302,8 +302,11 @@ and combined with the hands on every hand frame.
   (passthrough) with `hand-tracking` required; `WebXRHandTracker` shares
   three.js's session and reference space.
 - *Mouse*: the pointer is the fingertip; the left button (or Shift) draws. The
-  pen lies on the plane through the orbit target facing the camera. Mouse events drive the gestures directly (not per
-  frame) so the stroke start isn't sampled late.
+  pen lies on a camera-facing plane: through the keypoint under the pointer (the mouse ray passes within the snap
+  radius) when the stroke starts, else through the orbit target. If the stroke ends on a keypoint, its points slide
+  along their camera rays so depth goes linearly, by arc length, from the start depth to that keypoint's depth; on
+  screen the stroke is unchanged. The keypoint under the pointer is highlighted. Mouse events drive the gestures
+  directly (not per frame) so the stroke start isn't sampled late.
 
 ## View (`render/view.ts`)
 
