@@ -616,6 +616,12 @@ function loadPrefs() {
   }
 }
 
+// The toolbar wraps on narrow windows: keep the panel and gesture readout below it.
+const toolbar = $('toolbar');
+new ResizeObserver(() => {
+  document.documentElement.style.setProperty('--below-toolbar', `${toolbar.getBoundingClientRect().bottom + 6}px`);
+}).observe(toolbar);
+
 // ---------- start ----------
 loadPrefs();
 setMode('scaffold');

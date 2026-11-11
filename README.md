@@ -2,7 +2,7 @@
 
 Accurate 3D design drawing in the browser, after
 [ScaffoldSketch: Accurate Industrial Design Drawing in VR](https://doi.org/10.1145/3472749.3474756)
-(UIST 2021). Draw straight **scaffold** lines, which auto-correct to meet,
+(UIST 2021; [project page](https://cragl.cs.gmu.edu/scaffoldsketch/)). Draw straight **scaffold** lines, which auto-correct to meet,
 align, and match lengths; then draw **shape** curves, which auto-correct into
 smooth curves through the scaffold's keypoints.
 
