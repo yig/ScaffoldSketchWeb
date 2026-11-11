@@ -31,9 +31,13 @@ main { position: relative; height: 100%; }
   padding: 4px; pointer-events: auto;
 }
 #toolbar .right { margin-left: auto; }
-/* Same height as the button groups: button padding 5px + 1px borders. */
-#toolbar .brand a { display: block; padding: 6px 8px; font-weight: 700; color: var(--fg); text-decoration: none; }
-#toolbar .brand a:hover { color: var(--accent); text-decoration: underline; }
+/* The app's title: plain text, not a panel, with a white halo to stay legible over the grid. */
+#toolbar .group.brand { background: none; border: none; padding: 0 6px 0 2px; }
+#toolbar .brand a {
+  font-size: 18px; font-weight: 700; letter-spacing: -0.01em; color: var(--fg); text-decoration: none;
+  text-shadow: 0 0 4px #fff, 0 0 8px #fff;
+}
+#toolbar .brand a:hover { text-decoration: underline; text-underline-offset: 3px; }
 #toolbar label { display: flex; gap: 4px; align-items: center; padding: 0 6px; }
 #zoomLabel { min-width: 3.2em; text-align: center; font-variant-numeric: tabular-nums; }
 
